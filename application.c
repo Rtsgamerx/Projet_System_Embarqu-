@@ -189,7 +189,7 @@ float normalized_tensor[NN_IN_SIZE * 3] = {0};
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-
+//-----GODARD Adrien; PART A-----
 void read_pic(int n_image, int *tab_size, int *tab_width, int *tab_length, uint8_t *global_tab)
 {
 
@@ -215,62 +215,62 @@ void read_pic(int n_image, int *tab_size, int *tab_width, int *tab_length, uint8
 
 
     //Generation du nom de fichier
-    sprintf( ..., "%d.ppm", ... );
+    sprintf( file_name, "%d.ppm", n_image ); //##DONE : generating string from number
 
     // Open a file
-    printf("Loading %s\n", ... );
-    fr = f_open( ... , ... , FA_READ);
+    printf("Loading %s\n", file_name ); //##DONE : print info
+    fr = f_open(&fil , file_name , FA_READ); //##DONE : open file
     if (fr)
     {
-      printf("Failed to open %s!\n", ... );
+      printf("Failed to open %s!\n", file_name ); //##DONE : print error info if no file found
       return 0;
     }
 
     //Lecture de l'entete
-    fr = f_read( ... , &c1, 1, ... );
-    fr = f_read( ... , &c2, 1, ... );
+    fr = f_read(&fil , &c1, 1, &br ); //##DONE : read 1 byte on int c1
+    fr = f_read(&fil , &c2, 1, &br ); //##DONE : read 1 byte on int c2
 
     //Si l'entete vaut les caracteres 'P3' alors, on est dans le cas d'un fichier ppm
     if (c1 == 0x50 && c2 == 0x33)
     {
-      printf("Le fichier %s est un fichier ppm P3.\n", ... );
-      plop = f_gets(text, 10000, ... );
-      plop = f_gets(text, 10000, ... );
+      printf("Le fichier %s est un fichier ppm P3.\n", file_name ); //##DONE : print if file is OK
+      plop = f_gets(text, 10000, &fil );  //##DONE : read 10 000 bytes from file (in fact only until \n)
+      plop = f_gets(text, 10000, &fil );  //##DONE : read 10 000 bytes from file (in fact only until \n)
       if (text[0] == '#')
       { // test ligne de commentaire de openCV
         plop = f_gets(text, 10000, &fil);
       }
-      strToken = ...(text, " ");					//Utilisation des fonctions sur les chaînes de caractères décrites plus haut
-      length = ...(strToken); //Lecture de la longueur de l'image
-      strToken = ...(NULL, "\n");
-      width = ...(strToken); //Lecture de la largeur de l'image
+      strToken = My_strtok(text, " ");					//Utilisation des fonctions sur les chaînes de caractères décrites plus haut  //##DONE : generate first token
+      length = My_atoi(strToken); //Lecture de la longueur de l'image     //##DONE : generate int from token
+      strToken = My_strtok(NULL, "\n");                                                                                       //##DONE : generate second token
+      width = My_atoi(strToken); //Lecture de la largeur de l'image       //##DONE : generate int from token
       size = length * width;
-      tab_width[...] = width;						//Remplissage des tableaux des valeus de longueur, largeur et taille des images lues 
-      tab_length[...] = length;
-      tab_size[...] = size;
+      tab_width[n_image-1] = width;						//Remplissage des tableaux des valeus de longueur, largeur et taille des images lues  //##DONE : unsing n_image-1 index !!! n_image from 1 to max (don't start at 0)
+      tab_length[n_image-1] = length;                                                                                               //##DONE : unsing n_image-1 index
+      tab_size[n_image-1] = size;                                                                                                   //##DONE : unsing n_image-1 index
       for (i = 0; i < size; i++)					//initialisation du tableau pixel
       {
         pixels[i] = 0;
       }
-      printf("File size: %d and image size : %d * %d = %d\n", ... ,
-             tab_length[ ... ],
-             tab_width[ ... ],
-             tab_size[ ... ]);
+      printf("File size: %d and image size : %d * %d = %d\n", fsize ,
+             tab_length[ n_image-1 ],
+             tab_width[ n_image-1 ],
+             tab_size[ n_image-1 ]);  //##DONE : seting all index; curious : the file size is not changed (set at 0)
 
-      plop = f_gets(text, 10000, ... );
+      plop = f_gets(text, 10000, &fil );  //##DONE : read 10 000 bytes from file (in fact only until \n)
       i = 0;
       plop = calloc(3 * size, sizeof(*plop));
       //Pour toutes les lignes du fichier
       while (&fil != NULL && i < (3 * size))
       {
-        plop = f_gets(text, 10000, ... ); //On lit une ligne
-        strToken = ...(text, " ");  //On separe les differents chiffres
+        plop = f_gets(text, 10000, &fil ); //On lit une ligne     //DONE : read 10 000 bytes from file (in fact only until \n)
+        strToken = My_strtok(text, " ");  //On separe les differents chiffres       //##DONE : generate first token
         //Pour tous les chiffres de la ligne
         while (strToken != NULL && i < (3 * size))
         {
-          pixels[i] = ...(strToken); //On remplit le tableau pixel par pixel
+          pixels[i] = My_atoi(strToken); //On remplit le tableau pixel par pixel    //##DONE : generate int from token
           i++;
-          strToken = ...(NULL, " "); //On selectionne le token suivant
+          strToken = My_strtok(NULL, " "); //On selectionne le token suivant        //##DONE : shift token
           if (strToken[0] == '\n')
           { // On enlève les caractère de saut de ligne '\n'
             strToken = NULL;
@@ -282,20 +282,20 @@ void read_pic(int n_image, int *tab_size, int *tab_width, int *tab_length, uint8
     printf("n_image = %d\n", n_image);
     for (i = 0; i < size * 3; i++)
     {
-      global_tab[...] = pixels[i]; //On remplit le tableau global pour pouvoir reutiliser le tableau pixel
+      global_tab[(n_image-1) * DISPLAY_IMAGE_SIZE * 3 + size] = pixels[i]; //On remplit le tableau global pour pouvoir reutiliser le tableau pixel    //DONE : getting the image position on array and then moving though the image 
     }
-    printf("Closing file %s\n", ...);
+    printf("Closing file %s\n", file_name); //##DONE : print closing message
 
     // Close the file
-    if (f_close(...))
+    if (f_close(&fil))    //##DONE : closing file
     {
       printf("fail to close file!");
       return 0;
     }
 
-  free(...);
-  free(...);
-  free(...);
+  free(strToken);   //##DONE : free allocated memory
+  free(text);       //##DONE : free allocated memory
+  free(plop);       //##DONE : free allocated memory
 
 }
 
@@ -839,12 +839,11 @@ int main(void)
 
   printf("Number of images to read : %d,    MIN = %d    MAX = %d\n", NB_IMAGES_TO_BE_READ, MIN_IMAGES_TO_READ, MAX_IMAGES_TO_READ);
 
+  //##DONE Adrien
   // MIN and MAX are included
-  for ( ... )				// Lire chaque image et les stocker dans global_tab
-  {
-    
-    ... ;
-
+  for ( n_image = MIN_IMAGES_TO_READ; n_image <= NB_IMAGES_TO_BE_READ; n_image++)				// Lire chaque image et les stocker dans global_tab   //##DONE : iteration on all images (1 to 14 included)
+  {    
+    read_pic(n_image, tab_size, tab_width, tab_length, global_tab) ;
   }
 
   
