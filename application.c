@@ -321,12 +321,12 @@ void convert_to_greyscale(int n_image, int *tab_size, int *tab_width, int *tab_l
 
 void init_csrs()
 {
-  ... ;    // init mie
-  ... ;    // init sie
-  ... ;    // init mip
-  ... ;    // init sip
-  ... ;    // init mideleg
-  ... ;    // init medeleg
+  write_csr(mie, 0);    // init mie
+  write_csr(sie, 0) ;    // init sie
+  write_csr(mip, 0) ;    // init mip
+  write_csr(sip, 0) ;    // init sip
+  write_csr(mideleg, 0) ;    // init mideleg
+  write_csr(medeleg, 0) ;    // init medeleg
 }
 
 #define PLIC_BASE_ADDRESS 0x0C000000
@@ -371,26 +371,26 @@ void enable_plic_interrupts()
 
   // Setting the Priority of the interrupt with ID 1,2,3 and 4 to value 1, so that the interrupts can be fired
   // Recall that an interrupt is fired when its priority is > than the threshold
-  *(volatile unsigned int *) ... ;
-  *(volatile unsigned int *) ... ;
-  *(volatile unsigned int *) ... ;
-  *(volatile unsigned int *) ... ;
+  *(volatile unsigned int *) PLIC_PRIORITY_BTNW = 1 ; // West button
+  *(volatile unsigned int *) PLIC_PRIORITY_BTNE = 1 ; // East button
+  *(volatile unsigned int *) PLIC_PRIORITY_BTNS = 1 ; // South button
+  *(volatile unsigned int *) PLIC_PRIORITY_BTNN = 1 ; // North button
 
   // Setting the priority threshold to Zero
-  *(volatile unsigned int *) ... ;
+  *(volatile unsigned int *) PLIC_HART0_PRIO_THRESH_ADDR = 0 ;
 
   // clear interrupt pending
-  *(volatile unsigned int *) ... ;
+  *(volatile unsigned int *) PLIC_INT_PENDING_BASEADDR = 0;
 
   // PLIC ENABLE interrupts of ID 1,2,3 and 4
   // (ID 1 and ID 2 are connected to zero)
-  *(volatile unsigned int *)(PLIC_INT_ENABLE_BASEADDR) = ... ;
+  *(volatile unsigned int *)(PLIC_INT_ENABLE_BASEADDR) = (PLIC_ENABLE_BTNW | PLIC_ENABLE_BTNE | PLIC_ENABLE_BTNS | PLIC_ENABLE_BTNN) ;
 
   // Enable MEIP (Machine External Interrupt Pending) bit in MIE register
-  ... ;
+  set_csr(mie, MIP_MEIP) ;
 
   // Enable MIE (Machine Interrupt Enable) bit of MSTATUS
-  ... ;
+  set_csr(mstatus, MSTATUS_MIE)  ;
 }
 
 
@@ -405,39 +405,40 @@ void external_interrupt(void)
 {
   int claim = 0;
 #ifdef VERBOSE
-  //printf("Hello external interrupdet! "__TIMESTAMP__"\n");
+  printf("Hello external interrupdet! "__TIMESTAMP__"\n");
 #endif  
   
   // Read the ID (the highest priority pending interrupt)
   // If the value we read is zero then no pending interrupt is coming from PLIC 
-  claim = plic[ ... ]; 									//consulter le fichier syscall.c
+  claim = plic[ PLIC_HART0_CLAIM_COMPLETE_ADDR ]; 									//consulter le fichier syscall.c
   clear_csr(mie, MIP_MEIP);
   if(isBouncing == 0)
   {
-    // printf("Interrupt executed !\n");
+    printf("Interrupt executed !\n");
   	// If BTNW :									//Si pression du bouton Ouest, décrémentation de la variable de sélection de l'image
   	if (claim == 1)									//Mise à sa valeur max si elle atteint sa valeur min
   	{
-  		... ;
-  		if( ... ) ... ;
+  		imageSel-- ;
+  		if( imageSel == MIN_IMAGES_TO_READ - 1 ) imageSel = MAX_IMAGES_TO_READ ;
     }
   	// If BTNE :									//Si pression du bouton Est, incrémentation de la variable de sélection de l'image
   	else if (claim == 2)								//Mise à sa valeur min si elle atteint sa valeur max
   	{
-      		... ;
-      if( ... )
-        ... ;
+      		imageSel++ ;
+      if( imageSel == MAX_IMAGES_TO_READ + 1 )
+        imageSel = MIN_IMAGES_TO_READ;
   	}
   	// If BTNS :									//Si pression du bouton Sud, décrémentation de la variable de sélection du filtre
   	else if (claim == 3)								//Mise à sa valeur max si elle atteint sa valeur min
   	{
-  		... ;
-  		if( ... ) ... ;
+  		filterSel-- ;
+  		if( filterSel == -1 ) filtreSel = 2 ;
   	}
   	// If BTNN :									//Si pression du bouton Nord, incrémentation de la variable de sélection du filtre
   	else if (claim == 4)								//Mise à sa valeur min si elle atteint sa valeur max
   	{
-      		...;
+      		filterSel++;
+		if( filterSel == 3 ) filterSel = 0 ;
   	}
   	isBouncing = 1;
   }
@@ -445,7 +446,7 @@ void external_interrupt(void)
   // Write the ID of the interrupt source to the claim/complete register to complete the interrupt
   // The PLIC will clear the pending bit of the corresponding ID 
   // /!\ If the ID don't match the pending ID, the completion is silently ignored
-  plic[ ... ] = claim;
+  plic[ PLIC_HART0_CLAIM_COMPLETE_ADDR ] = claim;
   set_csr(mie, MIP_MEIP); 
 }
 
@@ -586,7 +587,7 @@ void convolution_filter(uint8_t image[CONV_READ_SIZE_PGM], KERNEL_CONV_FIXED_FOR
 //square root function
 float __ieee754_sqrtf(float x)
 {
-  asm("... %0, %1"
+  asm("fsqrt.s %0, %1"
       : "=f"(x)
       : "f"(x));
   return x;
@@ -594,7 +595,7 @@ float __ieee754_sqrtf(float x)
 
 double __ieee754_sqrt(double x)
 {
-  asm("... %0, %1"
+  asm("fsqrt.d %0, %1"
       : "=f"(x)
       : "f"(x));
   return x;
@@ -722,11 +723,11 @@ void display(int img_in_number, filter_type filter_nb, uint8_t previous_imageSel
   {
 
   case BYPASS:
-    on_screen( ... );
+    on_screen(BYPASS, 10, ptr_selected_img);
     break;
 
-  case EDGE_DETECTOR:
-    on_screen( ... );
+   case EDGE_DETECTOR:
+    on_screen( EDGE_DETECTOR, 11, diplay_ptr_filtered);
     break;
 
   case CNN_CLASSIFIER:
@@ -736,14 +737,14 @@ void display(int img_in_number, filter_type filter_nb, uint8_t previous_imageSel
     {
       for (x = 0; x < 640 / 8; ++x)
       {
-        ... = ... ;
-	... ;
+        hid_new_vga_ptr[x + y * 640 / 8] = (*display_ptr);
+	      display_ptr++ ;
       }
     }
     // Launch the CNN
-    int result = ... ;
+    int result = perform_cnn(img_in_number);
     // When finished, show the LABEL as an overlay.
-    on_screen( ... );
+    on_screen( CNN_CLASSIFIER, result, ptr_selected_img );
     break;
   }
 }
@@ -764,7 +765,7 @@ void on_screen(int mode, int class, uint8_t *img)
   {
     printf("\nPainting BYPASS overlay.\n");
     //L'image à l'indice 10 correspond à l'overlay du bypass
-    ptr_labels_overlay = ... ; // on decale pour sauter les etiquettes des classes du CNN
+    ptr_labels_overlay = ptr_labels_overlay + 10*176*80/8 ; // on decale pour sauter les etiquettes des classes du CNN
     y_offset = 0;
     x_offset = 0;
   }
@@ -772,7 +773,7 @@ void on_screen(int mode, int class, uint8_t *img)
   {
     printf("\nPainting CNN CLASS overlay\n");
     //L'image aux indices 0 à 9 correspondent aux overlays des différentes classes du CNN
-    ptr_labels_overlay = ... ;
+    ptr_labels_overlay = ptr_labels_overlay + class*176*80/8 ;
     y_offset = 0;
     x_offset = 0;
   }
@@ -780,7 +781,7 @@ void on_screen(int mode, int class, uint8_t *img)
   {
     printf("\nPainting the FILTER overlay\n");
     //L'image à l'indice 11 correspond à l'overlay du edge detector
-    ptr_labels_overlay = ... ; //apres les etiquettes des classes
+    ptr_labels_overlay = ptr_labels_overlay + 11*176*80/8 ; //apres les etiquettes des classes
     y_offset = 0;
     x_offset = 0;
   }
@@ -789,7 +790,7 @@ void on_screen(int mode, int class, uint8_t *img)
   {
     for (x = 0; x < 640 / 8; ++x)
     {
-      if ( ...
+      if ( y<=80 && x<=176/8)
       { //on verifie si on est dans la zone de l'etiquette
         hid_new_vga_ptr[x + y * 640 / 8] = (*ptr_labels_overlay);
         ptr_labels_overlay++;
@@ -862,13 +863,12 @@ int main(void)
   }
 
   // FILTERING STUFF
-  printf("Starting filtering!\n");
-  for ( ... )                           //Pour chaque image de TAB_GS, appliquer la convolution et les stocker dans TAB_GS_FILTERED
+   printf("Starting filtering!\n");
+  for ( n_image = 0 ; image <= NB_IMAGES_TO_BE_READ ; n_image++)				//Pour chaque image de TAB_GS, appliquer le sobel filter et stocker le résultat dans TAB_GS_FILTERED
   {
-    ... ;
+     convolution_filter(uint8_t TAB_GS, KERNEL_CONV_FIXED_FORMAT kernel[3 * 3 * 1], BIAISES_CONV_FIXED_FORMAT biaises[1], uint8_t TAB_GS_FILTERED) ;
   }
   printf("Filtering done !\n");
-
 
 
   // Activate the Button inputs
@@ -889,20 +889,20 @@ int main(void)
 
   volatile unsigned int ii;
 
-  while (1)
+   while (1)
   {
-    if ( ... )    //Comparaison des valeurs courantes et précédentes des variables de sélection de l'image et du filtre
+    if ( (imageSel != previous_imageSel) || (filterSel != previous_filterSel) )    //Comparaison des valeurs courantes et précédentes des variables de sélection de l'image et du filtre
     {
-      if ( ... )
+      if ( filterSel == BYPASS )
       {
         edgeDetectorDone = 0;
         CNNDone = 0;
       }
 
-      display( ... );		//Si différence, maise à jour de l'affichage
+      display( imageSel, filter_type filter_nb, previous_imageSel, previous_filterSel);		//Si différence, maise à jour de l'affichage
 
-      ... ;						//Mise à jour de des valeurs de previous_imageSel et previous_filterSel en fonction des valeurs courantes
-      ... ;
+      previous_filterSel = filterSel ;						//Mise à jour de des valeurs de previous_imageSel et previous_filterSel en fonction des valeurs courantes
+      previous_imageSel = imageSel ;
     }
 
     ii = 10000;
