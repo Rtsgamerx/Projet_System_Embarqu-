@@ -306,9 +306,12 @@ void convert_to_greyscale(int n_image, int *tab_size, int *tab_width, int *tab_l
 {
   printf("Affichage image numero : %d   %d*%d=%d\n", n_image, tab_width[n_image - 1], tab_length[n_image - 1], tab_size[n_image - 1]);
   //Transformation Greyscale
-  for (int i = 0; i < tab_size[n_image - 1] * 3; i += 3)
-  { //For each pixel on R, G et B                  //On remplit pixel par pixel le tableau image en utilisant 0.3 de la valeur de R, 0.57 de la valeur de G et et 0.11 de la valeur de B par pixels du tableau global_tab
-    ... }
+  int j = 0;
+  for (int i = 0; i < tab_size[n_image - 1] * 3; i += 3) { 
+      image[j] = 0.3 * global_tab[(n_image -1)* DISPLAY_IMAGE_SIZE * 3 + i] + 0.57 * global_tab[(n_image -1)* DISPLAY_IMAGE_SIZE * 3 + i+1] + 0.11 * global_tab[(n_image -1)* DISPLAY_IMAGE_SIZE * 3 + i+2];
+      j++;    
+    //For each pixel on R, G et B                  //On remplit pixel par pixel le tableau image en utilisant 0.3 de la valeur de R, 0.57 de la valeur de G et et 0.11 de la valeur de B par pixels du tableau global_tab
+    }
 }
 
 
@@ -606,10 +609,30 @@ double __ieee754_sqrt(double x)
 void my_resizing(uint8_t *target_img, uint8_t *source_img, int source_size, int source_sizeX, int source_sizeY,   //Conversion d'une image 640*480 vers 24*24
                  int target_size, int target_sizeX, int target_sizeY)
 {
-  double temp = 0.0;
-  int w = 0;
+//Getting scaling
+    int scale_x = source_sizeX/target_sizeX;
+    int scale_y = source_sizeY/target_sizeY;
+//Getting border size
+    int border_x = (source_sizeX - scale_x*target_sizeX) /2;
+    int border_y = (source_sizeY - scale_y*target_sizeY) /2;
 
-	...
+    //Iterate though down sized image 
+  for(int iter_h = 0; iter_h < target_sizeY; iter_h++) {
+    for(int iter_w = 0; iter_w < target_sizeX; iter_w++) {
+      double temp_R = 0; double temp_G = 0; double temp_B = 0;
+      //Iterate though each down sized square area
+      for(int iter_moy_h = 0; iter_moy_h < scale_y; iter_moy_h++) {
+        for(int iter_moy_w = 0; iter_moy_w < scale_x; iter_moy_w++) {  
+            temp_R += source_img[3*(source_sizeX*(iter_h*scale_y+iter_moy_h+border_y) + iter_w*scale_x + iter_moy_w + border_x)];
+            temp_G += source_img[3*(source_sizeX*(iter_h*scale_y+iter_moy_h+border_y) + iter_w*scale_x + iter_moy_w + border_x)+1];
+            temp_B += source_img[3*(source_sizeX*(iter_h*scale_y+iter_moy_h+border_y) + iter_w*scale_x + iter_moy_w + border_x)+2];
+        }
+      }
+      target_img[3*(iter_h*target_sizeX + iter_w)]   = (uint8_t)(temp_R/(scale_x*scale_y));
+      target_img[3*(iter_h*target_sizeX + iter_w)+1] = (uint8_t)(temp_G/(scale_x*scale_y));
+      target_img[3*(iter_h*target_sizeX + iter_w)+2] = (uint8_t)(temp_B/(scale_x*scale_y));
+    }
+  }
 }
 
 
@@ -629,7 +652,27 @@ float *normalizing(float *normalized_img, float *resized_img, int size) // heigh
 //
 float *normalizing_tensor(float *target_tensor, float *source_tensor, int size) // height * width
 {
- ...
+    float trash = 0;
+
+    for(int iter_moy = 0; iter_moy < 3*size; iter_moy++) {
+        trash += source_tensor[iter_moy];
+    }
+
+    float moy = trash/(3*size);
+    trash = 0;
+
+    for(int iter_ect = 0; iter_ect < 3*size; iter_ect++) {
+        trash += pow((source_tensor[iter_ect] - moy), 2.0);
+    }
+
+    float ect = sqrt(trash/(3*size));
+    float max_divisor = (ect > (1/sqrt(3*size)))? ect : (1/sqrt(3*size));
+
+    for(int iter_init = 0; iter_init < 3*size; iter_init++) {
+        target_tensor[iter_init] = (source_tensor[iter_init] - moy)/max_divisor;
+    }
+
+    return(target_tensor);
 }
 
 
@@ -641,7 +684,11 @@ float *normalizing_tensor(float *target_tensor, float *source_tensor, int size) 
 */
 void img_to_tensor(float *target_tensor, uint8_t *source_img, int source_size, int source_sizeX, int source_sizeY)
 {
-  ...
+  for(int iter_lin = 0; iter_lin < source_size; iter_lin++) {
+    target_tensor[iter_lin]                 = (float)source_img[iter_lin*3];
+    target_tensor[  source_size +iter_lin]  = (float)source_img[iter_lin*3 +1];
+    target_tensor[2*source_size +iter_lin]  = (float)source_img[iter_lin*3 +2];
+  }
 }
 
 
@@ -857,9 +904,9 @@ int main(void)
   // All images loaded, grayscale conversion now.
 
   // Start the application: {filtering | no filtering} + on_screen
-  for ( ... )				//Pour chaque image de global_tab, appliquer le greyscale et stocker le résultat dans TAB_GS 
-  {
-    ... ;  
+  for ( n_image = MIN_IMAGES_TO_READ; n_image <= NB_IMAGES_TO_BE_READ; n_image++) //Pour chaque image de global_tab, appliquer le greyscale et stocker le résultat dans TAB_GS
+  {    
+    convert_to_greyscale(n_image, tab_size, tab_width, tab_length, global_tab, TAB_GS[n_image-1]);
   }
 
   // FILTERING STUFF
